@@ -38,23 +38,17 @@ A minimal PyTorch implementation of YOLOv4.
 
 ![image](https://user-gold-cdn.xitu.io/2020/4/26/171b5a6c8b3bd513?w=768&h=576&f=jpeg&s=78882)
 
-# 0. Weights Download
+## 0. Weights Download
 
-## 0.1 darknet
-- baidu(https://pan.baidu.com/s/1dAGEW8cm-dqK14TbhhVetA     Extraction code:dm5b)
-- google(https://drive.google.com/open?id=1cewMfusmPjYWbrnuJRuKhPMwRe_b9PaT)
+### 0.1 darknet
 
-## 0.2 pytorch
+链接: https://pan.baidu.com/s/1tcM27un1sIIA89mHO17qrg  密码: 7cq3
+### 0.2 pytorch
 you can use darknet2pytorch to convert it yourself, or download my converted model.
 
-- baidu
-    - yolov4.pth(https://pan.baidu.com/s/1ZroDvoGScDgtE1ja_QqJVw Extraction code:xrq9) 
-    - yolov4.conv.137.pth(https://pan.baidu.com/s/1ovBie4YyVQQoUrC3AY0joA Extraction code:kcel)
-- google
-    - yolov4.pth(https://drive.google.com/open?id=1wv_LiFeCRYwtpkqREPeI13-gPELBDwuJ)
-    - yolov4.conv.137.pth(https://drive.google.com/open?id=1fcbR0bWzYfIEdLJPzOsn4R5mlvR6IQyA)
+链接: https://pan.baidu.com/s/1tcM27un1sIIA89mHO17qrg  密码: 7cq3
 
-# 1. Train
+## 1. Train
 
 [use yolov4 to train your own data](Use_yolov4_to_train_your_own_data.md)
 

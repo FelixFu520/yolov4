@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 @Time          : 2020/05/06 21:09
-@Author        : Tianxiaomo
+@Author        : Tianxiaomo，modify by felixfu
 @File          : dataset.py
 @Noice         :
 @Modificattion :
@@ -9,7 +9,7 @@
     @Time      :
     @Detail    :
 
-'''
+"""
 import os
 import random
 import sys
@@ -22,6 +22,12 @@ from torch.utils.data.dataset import Dataset
 
 
 def rand_uniform_strong(min, max):
+    """
+    随机在（min，max）中产生个值
+    :param min:
+    :param max:
+    :return:
+    """
     if min > max:
         swap = min
         min = max
@@ -30,6 +36,11 @@ def rand_uniform_strong(min, max):
 
 
 def rand_scale(s):
+    """
+    随机在 (1, s)和 1/（1，s）中选择个数
+    :param s:
+    :return:
+    """
     scale = rand_uniform_strong(1, s)
     if random.randint(0, 1) % 2:
         return scale
@@ -288,18 +299,23 @@ class Yolo_dataset(Dataset):
         out_img = np.zeros([self.cfg.h, self.cfg.w, 3])
         out_bboxes = []
 
+        # for循环，cutmix多张图片
         for i in range(use_mixup + 1):
+            # 从datasets中随机选择一张图片
             if i != 0:
                 img_path = random.choice(list(self.truth.keys()))
                 bboxes = np.array(self.truth.get(img_path), dtype=np.float)
                 img_path = os.path.join(self.cfg.dataset_dir, img_path)
+
+            # 读取原始图片
             img = cv2.imread(img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if img is None:
                 continue
-            oh, ow, oc = img.shape
-            dh, dw, dc = np.array(np.array([oh, ow, oc]) * self.cfg.jitter, dtype=np.int)
+            oh, ow, oc = img.shape  # original height/width/channels
+            dh, dw, dc = np.array(np.array([oh, ow, oc]) * self.cfg.jitter, dtype=np.int)  # delta height/width/channels
 
+            # delta的色彩三要素
             dhue = rand_uniform_strong(-self.cfg.hue, self.cfg.hue)
             dsat = rand_scale(self.cfg.saturation)
             dexp = rand_scale(self.cfg.exposure)
@@ -309,9 +325,11 @@ class Yolo_dataset(Dataset):
             ptop = random.randint(-dh, dh)
             pbot = random.randint(-dh, dh)
 
+            # 是否反转
             flip = random.randint(0, 1) if self.cfg.flip else 0
 
-            if (self.cfg.blur):
+            # 是否图像模糊
+            if self.cfg.blur:
                 tmp_blur = random.randint(0, 2)  # 0 - disable, 1 - blur background, 2 - blur the whole image
                 if tmp_blur == 0:
                     blur = 0
@@ -320,6 +338,7 @@ class Yolo_dataset(Dataset):
                 else:
                     blur = self.cfg.blur
 
+            # 是否高斯噪音
             if self.cfg.gaussian and random.randint(0, 1):
                 gaussian_noise = self.cfg.gaussian
             else:
@@ -335,7 +354,7 @@ class Yolo_dataset(Dataset):
                     delta_h = (oh_tmp - oh) / 2
                     ptop = ptop - delta_h
                     pbot = pbot - delta_h
-                    # print(" result_ar = %f, oh_tmp = %f, delta_h = %d, ptop = %f, pbot = %f \n", result_ar, oh_tmp, delta_h, ptop, pbot);
+                    print(" result_ar = %f, oh_tmp = %f, delta_h = %d, ptop = %f, pbot = %f \n", result_ar, oh_tmp, delta_h, ptop, pbot);
                 else:  # swidth - should be increased
                     ow_tmp = oh * net_ar
                     delta_w = (ow_tmp - ow) / 2
@@ -436,10 +455,11 @@ if __name__ == "__main__":
 
     random.seed(2020)
     np.random.seed(2020)
-    Cfg.dataset_dir = '/mnt/e/Dataset'
+    Cfg.dataset_dir = 'datasets/mscoco2017'
     dataset = Yolo_dataset(Cfg.train_label, Cfg)
-    for i in range(100):
+    for i in range(10):
         out_img, out_bboxes = dataset.__getitem__(i)
         a = draw_box(out_img.copy(), out_bboxes.astype(np.int32))
         plt.imshow(a.astype(np.int32))
         plt.show()
+    print('eh')
