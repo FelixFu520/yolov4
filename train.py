@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 @Time          : 2020/05/06 15:07
-@Author        : Tianxiaomo
+@Author        : Tianxiaomo, modify by felixfu
 @File          : train.py
 @Noice         :
 @Modificattion :
@@ -9,7 +9,7 @@
     @Time      :
     @Detail    :
 
-'''
+"""
 import time
 import logging
 import os, sys, math

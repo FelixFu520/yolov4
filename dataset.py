@@ -10,9 +10,9 @@
     @Detail    :
 
 """
+
 import os
 import random
-import sys
 
 import cv2
 import numpy as np
@@ -21,18 +21,18 @@ import torch
 from torch.utils.data.dataset import Dataset
 
 
-def rand_uniform_strong(min, max):
+def rand_uniform_strong(min_value, max_value):
     """
     随机在（min，max）中产生个值
-    :param min:
-    :param max:
+    :param min_value:
+    :param max_value:
     :return:
     """
-    if min > max:
-        swap = min
-        min = max
-        max = swap
-    return random.random() * (max - min) + min
+    if min_value > max_value:
+        swap = min_value
+        min_value = max_value
+        max_value = swap
+    return random.random() * (max_value - min_value) + min_value
 
 
 def rand_scale(s):
