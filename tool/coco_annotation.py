@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 @Time          : 2020/05/08 11:45
-@Author        : Tianxiaomo
+@Author        : Tianxiaomo, modify by felixfu
 @File          : coco_annotatin.py
 @Noice         :
 @Modificattion :
@@ -9,16 +9,25 @@
     @Time      :
     @Detail    :
 
-'''
+"""
+
 import json
 from collections import defaultdict
 from tqdm import tqdm
 import os
 
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_BASE_DIR = os.path.join(_BASE_DIR, "../")
+
 """hyper parameters"""
-json_file_path = 'E:/Dataset/mscoco2017/annotations/instances_train2017.json'
-images_dir_path = 'mscoco2017/train2017/'
-output_path = '../data/val.txt'
+# train
+json_file_path = os.path.join(_BASE_DIR, "datasets/mscoco2017/annotations/instances_train2017.json")
+images_dir_path = os.path.join(_BASE_DIR, 'datasets/mscoco2017/train2017/')
+output_path = os.path.join(_BASE_DIR, 'data/train.txt')
+# val
+# json_file_path = os.path.join(_BASE_DIR, "datasets/mscoco2017/annotations/instances_val2017.json")
+# images_dir_path = os.path.join(_BASE_DIR, 'datasets/mscoco2017/val2017/')
+# output_path = os.path.join(_BASE_DIR, 'data/val.txt')
 
 """load json file"""
 name_box_id = defaultdict(list)
