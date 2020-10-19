@@ -34,7 +34,6 @@ def rand_uniform_strong(min_value, max_value):
         max_value = swap
     return random.random() * (max_value - min_value) + min_value
 
-
 def rand_scale(s):
     """
     随机在 (1, s)和 1/（1，s）中选择个数
@@ -46,19 +45,40 @@ def rand_scale(s):
         return scale
     return 1. / scale
 
-
 def rand_precalc_random(min, max, random_part):
+    """
+    功能：return (random_part * (max - min)) + min
+    :param min:
+    :param max:
+    :param random_part:
+    :return:
+    """
     if max < min:
         swap = min
         min = max
         max = swap
     return (random_part * (max - min)) + min
 
-
 def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w, net_h):
-    if bboxes.shape[0] == 0:
+    """
+    功能：根据裁剪图片，修改truth
+    :param bboxes: 这张图片的所有bbox。bboxes
+    :param num_boxes: self.cfg.boxes
+    :param classes: 80个类别，self.cfg.classes
+    :param flip: 翻转，flip
+    :param dx: pleft
+    :param dy: ptop
+    :param sx: swidth
+    :param sy: sheight
+    :param net_w: self.cfg.w
+    :param net_h: self.cfg.h
+    :return: 更新的bboxes, min_w_h
+    """
+    if bboxes.shape[0] == 0:    # eg. bboxes.shape (11,5)
         return bboxes, 10000
     np.random.shuffle(bboxes)
+
+    # bboxes: x1,y1,x2,y2,id    x1,y1,x2,y2,id     x1,y1,x2,y2,id ...。缩小bbox使之适应裁剪内容
     bboxes[:, 0] -= dx
     bboxes[:, 2] -= dx
     bboxes[:, 1] -= dy
@@ -70,6 +90,7 @@ def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w
     bboxes[:, 1] = np.clip(bboxes[:, 1], 0, sy)
     bboxes[:, 3] = np.clip(bboxes[:, 3], 0, sy)
 
+    # 删除无框bboxes，按where条件删除
     out_box = list(np.where(((bboxes[:, 1] == sy) & (bboxes[:, 3] == sy)) |
                             ((bboxes[:, 0] == sx) & (bboxes[:, 2] == sx)) |
                             ((bboxes[:, 1] == 0) & (bboxes[:, 3] == 0)) |
@@ -87,8 +108,10 @@ def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w
     if bboxes.shape[0] > num_boxes:
         bboxes = bboxes[:num_boxes]
 
+    # 最小的bbox的w或h
     min_w_h = np.array([bboxes[:, 2] - bboxes[:, 0], bboxes[:, 3] - bboxes[:, 1]]).min()
 
+    # 使bboxes相对于net_w(608)的位置，修改为相对于sx（裁剪大小）的位置
     bboxes[:, 0] *= (net_w / sx)
     bboxes[:, 2] *= (net_w / sx)
     bboxes[:, 1] *= (net_h / sy)
@@ -101,8 +124,13 @@ def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w
 
     return bboxes, min_w_h
 
-
 def rect_intersection(a, b):
+    """
+    功能：矩形框a和b的 交集框的下标
+    :param a:
+    :param b:
+    :return:[minx, miny, maxx, maxy]，矩形框a和b的 交集框的下标
+    """
     minx = max(a[0], b[0])
     miny = max(a[1], b[1])
 
@@ -110,28 +138,49 @@ def rect_intersection(a, b):
     maxy = min(a[3], b[3])
     return [minx, miny, maxx, maxy]
 
-
 def image_data_augmentation(mat, w, h, pleft, ptop, swidth, sheight, flip, dhue, dsat, dexp, gaussian_noise, blur,
                             truth):
+    """
+    功能：对mat进行数据增强操作
+    ai = image_data_augmentation(img, self.cfg.w, self.cfg.h, pleft, ptop, swidth, sheight, flip,
+                                         dhue, dsat, dexp, gaussian_noise, blur, truth)
+    :param mat: img
+    :param w: self.cfg.w,
+    :param h: self.cfg.h
+    :param pleft: pleft
+    :param ptop: ptop
+    :param swidth: swidth
+    :param sheight: sheight
+    :param flip: flip
+    :param dhue:dhue
+    :param dsat:dsat
+    :param dexp:dexp
+    :param gaussian_noise:gaussian_noise
+    :param blur:blur
+    :param truth:truth，裁剪后的labels，这张图片的
+    :return:sized， bboxes隐式返回
+    """
     try:
         img = mat
         oh, ow, _ = img.shape
         pleft, ptop, swidth, sheight = int(pleft), int(ptop), int(swidth), int(sheight)
         # crop
-        src_rect = [pleft, ptop, swidth + pleft, sheight + ptop]  # x1,y1,x2,y2
-        img_rect = [0, 0, ow, oh]
-        new_src_rect = rect_intersection(src_rect, img_rect)  # 交集
+        src_rect = [pleft, ptop, swidth + pleft, sheight + ptop]  # x1,y1,x2,y2, 截取rect。坐标相对自己
+        img_rect = [0, 0, ow, oh]  # img图片的rect
+        new_src_rect = rect_intersection(src_rect, img_rect)  # 截取rect和img图片rect交集, [106, 0, 640, 408]。坐标相对自己
 
+        # 裁剪结果图坐标，在w和h的相对位置上，坐标相对于img
         dst_rect = [max(0, -pleft), max(0, -ptop), max(0, -pleft) + new_src_rect[2] - new_src_rect[0],
-                    max(0, -ptop) + new_src_rect[3] - new_src_rect[1]]
+                    max(0, -ptop) + new_src_rect[3] - new_src_rect[1]] # eg. [0, 32, 534, 440]
+
         # cv2.Mat sized
+        if src_rect[0] == 0 and src_rect[1] == 0 and src_rect[2] == img.shape[0] and src_rect[3] == img.shape[1]:
+            sized = cv2.resize(img, (w, h), cv2.INTER_LINEAR)   # 截取rect同img大小
+        else:   # 截取rect同img不一样大
+            cropped = np.zeros([sheight, swidth, 3])    # size （440， 540， 3），原图大小（640， 247， 3）
+            cropped[:, :, ] = np.mean(img, axis=(0, 1)) # shape 3, eg. [106, 89, 84]
 
-        if (src_rect[0] == 0 and src_rect[1] == 0 and src_rect[2] == img.shape[0] and src_rect[3] == img.shape[1]):
-            sized = cv2.resize(img, (w, h), cv2.INTER_LINEAR)
-        else:
-            cropped = np.zeros([sheight, swidth, 3])
-            cropped[:, :, ] = np.mean(img, axis=(0, 1))
-
+            # cropped[32:440, 0:534] = img[0:408, 106:640], img[src_rect  U img_rect] --> cropped
             cropped[dst_rect[1]:dst_rect[3], dst_rect[0]:dst_rect[2]] = \
                 img[new_src_rect[1]:new_src_rect[3], new_src_rect[0]:new_src_rect[2]]
 
@@ -220,9 +269,24 @@ def filter_truth(bboxes, dx, dy, sx, sy, xd, yd):
 
     return bboxes
 
-
 def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
                        left_shift, right_shift, top_shift, bot_shift):
+    """
+
+    :param out_img:
+    :param img:
+    :param bboxes:
+    :param w:
+    :param h:
+    :param cut_x:
+    :param cut_y:
+    :param i_mixup:
+    :param left_shift:
+    :param right_shift:
+    :param top_shift:
+    :param bot_shift:
+    :return:
+    """
     left_shift = min(left_shift, w - cut_x)
     top_shift = min(top_shift, h - cut_y)
     right_shift = min(right_shift, cut_x)
@@ -243,8 +307,13 @@ def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
 
     return out_img, bboxes
 
-
 def draw_box(img, bboxes):
+    """
+    功能：将bboxes中的矩形框画在img上
+    :param img:
+    :param bboxes:
+    :return:
+    """
     for b in bboxes:
         img = cv2.rectangle(img, (b[0], b[1]), (b[2], b[3]), (0, 255, 0), 2)
     return img
@@ -263,8 +332,15 @@ class Yolo_dataset(Dataset):
         self.cfg = cfg
         self.train = train
 
+        # 读取数据标签到truth中
         truth = {}
         f = open(lable_path, 'r', encoding='utf-8')
+        '''
+        数据格式
+        image_path1 x1,y1,x2,y2,id x1,y1,x2,y2,id x1,y1,x2,y2,id ...
+        image_path2 x1,y1,x2,y2,id x1,y1,x2,y2,id x1,y1,x2,y2,id ...
+        ...
+        '''
         for line in f.readlines():
             data = line.split(" ")
             truth[data[0]] = []
@@ -278,48 +354,54 @@ class Yolo_dataset(Dataset):
         return len(self.truth.keys())
 
     def __getitem__(self, index):
+        """
+        功能：读取train和val的数据
+        :param index:
+        :return:
+        """
         if not self.train:
             return self._get_val_item(index)
-        img_path = self.imgs[index]
-        bboxes = np.array(self.truth.get(img_path), dtype=np.float)
-        img_path = os.path.join(self.cfg.dataset_dir, img_path)
-        use_mixup = self.cfg.mixup
+
+        img_path = self.imgs[index]                                     # 图片路径
+        bboxes = np.array(self.truth.get(img_path), dtype=np.float)     # bboxes
+        use_mixup = self.cfg.mixup                                      # 使用cutmix、mosica
+
+        # 随机选择，是否mosica，或者cutmix
         if random.randint(0, 1):
             use_mixup = 0
 
-        if use_mixup == 3:
+        if use_mixup == 3:  # 进行mosaic，选取中心点， 在图片中随机选择一点，作为cutmix中心点
             min_offset = 0.2
-            cut_x = random.randint(int(self.cfg.w * min_offset), int(self.cfg.w * (1 - min_offset)))
-            cut_y = random.randint(int(self.cfg.h * min_offset), int(self.cfg.h * (1 - min_offset)))
+            cut_x = random.randint(int(self.cfg.w * min_offset), int(self.cfg.w * (1 - min_offset)))    # eg. 464
+            cut_y = random.randint(int(self.cfg.h * min_offset), int(self.cfg.h * (1 - min_offset)))    # eg. 357
 
-        r1, r2, r3, r4, r_scale = 0, 0, 0, 0, 0
-        dhue, dsat, dexp, flip, blur = 0, 0, 0, 0, 0
-        gaussian_noise = 0
+        dhue, dsat, dexp, flip, blur, gaussian_noise = 0, 0, 0, 0, 0, 0    # delta的HSE，是否翻转、模糊、高斯
 
-        out_img = np.zeros([self.cfg.h, self.cfg.w, 3])
-        out_bboxes = []
+        out_img = np.zeros([self.cfg.h, self.cfg.w, 3])                    # 输出图片
+        out_bboxes = []                                                    # 输出bboxes
 
-        # for循环，cutmix多张图片
+        # for循环，cutmix多张图片（cutmix1张，cutmix4张）
         for i in range(use_mixup + 1):
-            # 从datasets中随机选择一张图片
-            if i != 0:
+            if i != 0:  # 从datasets中随机选择一张图片，用作mosica
                 img_path = random.choice(list(self.truth.keys()))
                 bboxes = np.array(self.truth.get(img_path), dtype=np.float)
-                img_path = os.path.join(self.cfg.dataset_dir, img_path)
 
             # 读取原始图片
             img = cv2.imread(img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if img is None:
                 continue
-            oh, ow, oc = img.shape  # original height/width/channels
-            dh, dw, dc = np.array(np.array([oh, ow, oc]) * self.cfg.jitter, dtype=np.int)  # delta height/width/channels
+
+
+            oh, ow, oc = img.shape  # original height/width/channels， eg. (427,640,3)
+            dh, dw, dc = np.array(np.array([oh, ow, oc]) * self.cfg.jitter, dtype=np.int)  # delta height/width/channels， eg. (85,128,0)
 
             # delta的色彩三要素
-            dhue = rand_uniform_strong(-self.cfg.hue, self.cfg.hue)
-            dsat = rand_scale(self.cfg.saturation)
-            dexp = rand_scale(self.cfg.exposure)
+            dhue = rand_uniform_strong(-self.cfg.hue, self.cfg.hue) # delta H=色相决定是什么颜色
+            dsat = rand_scale(self.cfg.saturation)                  # delta S=纯度决定颜色浓淡
+            dexp = rand_scale(self.cfg.exposure)                    # delta B=明度决定照射在颜色上的白光有多亮
 
+            # 首先生成一些随机偏移的坐标，分别代表左右上下
             pleft = random.randint(-dw, dw)
             pright = random.randint(-dw, dw)
             ptop = random.randint(-dh, dh)
@@ -344,46 +426,53 @@ class Yolo_dataset(Dataset):
             else:
                 gaussian_noise = 0
 
+            # 是否矫正box
             if self.cfg.letter_box:
                 img_ar = ow / oh
                 net_ar = self.cfg.w / self.cfg.h
-                result_ar = img_ar / net_ar
-                # print(" ow = %d, oh = %d, w = %d, h = %d, img_ar = %f, net_ar = %f, result_ar = %f \n", ow, oh, w, h, img_ar, net_ar, result_ar);
-                if result_ar > 1:  # sheight - should be increased
+                result_ar = img_ar / net_ar     # 看img和net那个更扁（长方形）
+                print(" ow = %d, oh = %d, w = %d, h = %d, img_ar = %f, net_ar = %f, result_ar = %f \n" % (ow, oh,
+                      self.cfg.w, self.cfg.h, img_ar, net_ar, result_ar));
+                if result_ar > 1:  # sheight - should be increased， width大
                     oh_tmp = ow / net_ar
                     delta_h = (oh_tmp - oh) / 2
                     ptop = ptop - delta_h
                     pbot = pbot - delta_h
-                    print(" result_ar = %f, oh_tmp = %f, delta_h = %d, ptop = %f, pbot = %f \n", result_ar, oh_tmp, delta_h, ptop, pbot);
-                else:  # swidth - should be increased
+                    print(" result_ar = %f, oh_tmp = %f, delta_h = %d, ptop = %f, pbot = %f \n" % (
+                          result_ar, oh_tmp, delta_h, ptop, pbot));
+                else:  # swidth - should be increased，height大
                     ow_tmp = oh * net_ar
                     delta_w = (ow_tmp - ow) / 2
                     pleft = pleft - delta_w
                     pright = pright - delta_w
-                    # printf(" result_ar = %f, ow_tmp = %f, delta_w = %d, pleft = %f, pright = %f \n", result_ar, ow_tmp, delta_w, pleft, pright);
+                    print(" result_ar = %f, ow_tmp = %f, delta_w = %d, pleft = %f, pright = %f \n" % (
+                          result_ar, ow_tmp, delta_w, pleft, pright));
 
+            # 裁剪部分的长和宽
             swidth = ow - pleft - pright
             sheight = oh - ptop - pbot
 
+            # 根据裁剪图片，修改truth，并获得bboxes最小的w或h
             truth, min_w_h = fill_truth_detection(bboxes, self.cfg.boxes, self.cfg.classes, flip, pleft, ptop, swidth,
                                                   sheight, self.cfg.w, self.cfg.h)
             if (min_w_h / 8) < blur and blur > 1:  # disable blur if one of the objects is too small
                 blur = min_w_h / 8
 
+            # 数据增强，只有个flip会改变labels，其他操作均不会，返回resized img
             ai = image_data_augmentation(img, self.cfg.w, self.cfg.h, pleft, ptop, swidth, sheight, flip,
                                          dhue, dsat, dexp, gaussian_noise, blur, truth)
 
-            if use_mixup == 0:
+            if use_mixup == 0:  # 不 cutmix
                 out_img = ai
                 out_bboxes = truth
-            if use_mixup == 1:
+            if use_mixup == 1:  # 两张图片 cutmix
                 if i == 0:
                     old_img = ai.copy()
                     old_truth = truth.copy()
                 elif i == 1:
                     out_img = cv2.addWeighted(ai, 0.5, old_img, 0.5)
                     out_bboxes = np.concatenate([old_truth, truth], axis=0)
-            elif use_mixup == 3:
+            elif use_mixup == 3:    # 4张图片 cutmix
                 if flip:
                     tmp = pleft
                     pleft = pright
@@ -407,10 +496,13 @@ class Yolo_dataset(Dataset):
 
     def _get_val_item(self, index):
         """
+
+        :param index:
+        :return: img, target
         """
         img_path = self.imgs[index]
         bboxes_with_cls_id = np.array(self.truth.get(img_path), dtype=np.float)
-        img = cv2.imread(os.path.join(self.cfg.dataset_dir, img_path))
+        img = cv2.imread(img_path)
         # img_height, img_width = img.shape[:2]
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         # img = cv2.resize(img, (self.cfg.w, self.cfg.h))
@@ -455,11 +547,9 @@ if __name__ == "__main__":
 
     random.seed(2020)
     np.random.seed(2020)
-    Cfg.dataset_dir = 'datasets/mscoco2017'
     dataset = Yolo_dataset(Cfg.train_label, Cfg)
     for i in range(10):
         out_img, out_bboxes = dataset.__getitem__(i)
         a = draw_box(out_img.copy(), out_bboxes.astype(np.int32))
         plt.imshow(a.astype(np.int32))
         plt.show()
-    print('eh')
