@@ -1,8 +1,24 @@
+# -*- coding: utf-8 -*-
+"""
+@Time          : 2020/05/06 21:05
+@Author        : Tianxiaomo
+@File          : Cfg.py
+@Noice         :
+@Modificattion : 注释
+    @Author    : FelixFU
+    @Time      : 2020年10月20日
+    @Detail    : 添加注释
+
+"""
 import torch
 from tool.torch_utils import convert2cpu
 
 
 def parse_cfg(cfgfile):
+    """转cfgfile(yolov4.cfg) 为 list(dict)格式，方便以后读取
+    :param cfgfile: yolov4的配置文件
+    :return: list（dict）
+    """
     blocks = []
     fp = open(cfgfile, 'r')
     block = None
@@ -36,6 +52,10 @@ def parse_cfg(cfgfile):
 
 
 def print_cfg(blocks):
+    """通过blocks 打印 网络结构
+    :param blocks:
+    :return:
+    """
     print('layer     filters    size              input                output');
     prev_width = 416
     prev_height = 416
@@ -184,6 +204,173 @@ def print_cfg(blocks):
             print('unknown type %s' % (block['type']))
 
 
+"""
+layer     filters    size              input                output
+    0 conv     32  3 x 3 / 1   608 x 608 x   3   ->   608 x 608 x  32
+    1 conv     64  3 x 3 / 2   608 x 608 x  32   ->   304 x 304 x  64
+    2 conv     64  1 x 1 / 1   304 x 304 x  64   ->   304 x 304 x  64
+    3 route  1
+    4 conv     64  1 x 1 / 1   304 x 304 x  64   ->   304 x 304 x  64
+    5 conv     32  1 x 1 / 1   304 x 304 x  64   ->   304 x 304 x  32
+    6 conv     64  3 x 3 / 1   304 x 304 x  32   ->   304 x 304 x  64
+    7 shortcut 4
+    8 conv     64  1 x 1 / 1   304 x 304 x  64   ->   304 x 304 x  64
+    9 route  8 2
+   10 conv     64  1 x 1 / 1   304 x 304 x 128   ->   304 x 304 x  64
+   11 conv    128  3 x 3 / 2   304 x 304 x  64   ->   152 x 152 x 128
+   12 conv     64  1 x 1 / 1   152 x 152 x 128   ->   152 x 152 x  64
+   13 route  11
+   14 conv     64  1 x 1 / 1   152 x 152 x 128   ->   152 x 152 x  64
+   15 conv     64  1 x 1 / 1   152 x 152 x  64   ->   152 x 152 x  64
+   16 conv     64  3 x 3 / 1   152 x 152 x  64   ->   152 x 152 x  64
+   17 shortcut 14
+   18 conv     64  1 x 1 / 1   152 x 152 x  64   ->   152 x 152 x  64
+   19 conv     64  3 x 3 / 1   152 x 152 x  64   ->   152 x 152 x  64
+   20 shortcut 17
+   21 conv     64  1 x 1 / 1   152 x 152 x  64   ->   152 x 152 x  64
+   22 route  21 12
+   23 conv    128  1 x 1 / 1   152 x 152 x 128   ->   152 x 152 x 128
+   24 conv    256  3 x 3 / 2   152 x 152 x 128   ->    76 x  76 x 256
+   25 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+   26 route  24
+   27 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+   28 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   29 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   30 shortcut 27
+   31 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   32 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   33 shortcut 30
+   34 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   35 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   36 shortcut 33
+   37 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   38 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   39 shortcut 36
+   40 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   41 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   42 shortcut 39
+   43 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   44 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   45 shortcut 42
+   46 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   47 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   48 shortcut 45
+   49 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   50 conv    128  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   51 shortcut 48
+   52 conv    128  1 x 1 / 1    76 x  76 x 128   ->    76 x  76 x 128
+   53 route  52 25
+   54 conv    256  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 256
+   55 conv    512  3 x 3 / 2    76 x  76 x 256   ->    38 x  38 x 512
+   56 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+   57 route  55
+   58 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+   59 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   60 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   61 shortcut 58
+   62 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   63 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   64 shortcut 61
+   65 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   66 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   67 shortcut 64
+   68 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   69 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   70 shortcut 67
+   71 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   72 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   73 shortcut 70
+   74 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   75 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   76 shortcut 73
+   77 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   78 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   79 shortcut 76
+   80 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   81 conv    256  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   82 shortcut 79
+   83 conv    256  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 256
+   84 route  83 56
+   85 conv    512  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 512
+   86 conv   1024  3 x 3 / 2    38 x  38 x 512   ->    19 x  19 x1024
+   87 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+   88 route  86
+   89 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+   90 conv    512  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   91 conv    512  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   92 shortcut 89
+   93 conv    512  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   94 conv    512  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   95 shortcut 92
+   96 conv    512  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   97 conv    512  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x 512
+   98 shortcut 95
+   99 conv    512  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  100 conv    512  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  101 shortcut 98
+  102 conv    512  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  103 route  102 87
+  104 conv   1024  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x1024
+  105 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  106 conv   1024  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x1024
+  107 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  108 max          5 x 5 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  109 route  107
+  110 max          9 x 9 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  111 route  107
+  112 max          13 x 13 / 1    19 x  19 x 512   ->    19 x  19 x 512
+  113 route  112 110 108 107
+  114 conv    512  1 x 1 / 1    19 x  19 x2048   ->    19 x  19 x 512
+  115 conv   1024  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x1024
+  116 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  117 conv    256  1 x 1 / 1    19 x  19 x 512   ->    19 x  19 x 256
+  118 upsample           * 2    19 x  19 x 256   ->    38 x  38 x 256
+  119 route  85
+  120 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  121 route  120 118
+  122 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  123 conv    512  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 512
+  124 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  125 conv    512  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 512
+  126 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  127 conv    128  1 x 1 / 1    38 x  38 x 256   ->    38 x  38 x 128
+  128 upsample           * 2    38 x  38 x 128   ->    76 x  76 x 128
+  129 route  54
+  130 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+  131 route  130 128
+  132 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+  133 conv    256  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 256
+  134 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+  135 conv    256  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 256
+  136 conv    128  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 128
+  137 conv    256  3 x 3 / 1    76 x  76 x 128   ->    76 x  76 x 256
+  138 conv    255  1 x 1 / 1    76 x  76 x 256   ->    76 x  76 x 255
+  139 detection
+  140 route  136
+  141 conv    256  3 x 3 / 2    76 x  76 x 128   ->    38 x  38 x 256
+  142 route  141 126
+  143 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  144 conv    512  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 512
+  145 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  146 conv    512  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 512
+  147 conv    256  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 256
+  148 conv    512  3 x 3 / 1    38 x  38 x 256   ->    38 x  38 x 512
+  149 conv    255  1 x 1 / 1    38 x  38 x 512   ->    38 x  38 x 255
+  150 detection
+  151 route  147
+  152 conv    512  3 x 3 / 2    38 x  38 x 256   ->    19 x  19 x 512
+  153 route  152 116
+  154 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  155 conv   1024  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x1024
+  156 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  157 conv   1024  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x1024
+  158 conv    512  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 512
+  159 conv   1024  3 x 3 / 1    19 x  19 x 512   ->    19 x  19 x1024
+  160 conv    255  1 x 1 / 1    19 x  19 x1024   ->    19 x  19 x 255
+  161 detection
+"""
+
+
 def load_conv(buf, start, conv_model):
     num_w = conv_model.weight.numel()
     num_b = conv_model.bias.numel()
@@ -252,7 +439,8 @@ def save_fc(fp, fc_model):
 if __name__ == '__main__':
     import sys
 
-    blocks = parse_cfg('cfg/yolo.cfg')
+    blocks = parse_cfg('../cfg/yolov4.cfg')
     if len(sys.argv) == 2:
         blocks = parse_cfg(sys.argv[1])
     print_cfg(blocks)
+

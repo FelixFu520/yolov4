@@ -9,6 +9,7 @@ from tool.torch_utils import *
 
 class Mish(torch.nn.Module):
     def __init__(self):
+        """Mish函数"""
         super().__init__()
 
     def forward(self, x):
@@ -18,19 +19,23 @@ class Mish(torch.nn.Module):
 
 class MaxPoolDark(nn.Module):
     def __init__(self, size=2, stride=1):
+        """maxpool
+        :param size:
+        :param stride:
+        """
         super(MaxPoolDark, self).__init__()
         self.size = size
         self.stride = stride
 
     def forward(self, x):
-        '''
+        """
         darknet output_size = (input_size + p - k) / s +1
         p : padding = k - 1
         k : size
         s : stride
         torch output_size = (input_size + 2*p -k) / s +1
         p : padding = k//2
-        '''
+        """
         p = self.size // 2
         if ((x.shape[2] - 1) // self.stride) != ((x.shape[2] + 2 * p - self.size) // self.stride):
             padding1 = (self.size - 1) // 2
@@ -49,8 +54,26 @@ class MaxPoolDark(nn.Module):
         return x
 
 
+class GlobalAvgPool2d(nn.Module):
+    def __init__(self):
+        """avgpool"""
+        super(GlobalAvgPool2d, self).__init__()
+
+    def forward(self, x):
+        N = x.data.size(0)
+        C = x.data.size(1)
+        H = x.data.size(2)
+        W = x.data.size(3)
+        x = F.avg_pool2d(x, (H, W))
+        x = x.view(N, C)
+        return x
+
+
 class Upsample_expand(nn.Module):
     def __init__(self, stride=2):
+        """上采样
+        :param stride:
+        """
         super(Upsample_expand, self).__init__()
         self.stride = stride
 
@@ -66,6 +89,9 @@ class Upsample_expand(nn.Module):
 
 class Upsample_interpolate(nn.Module):
     def __init__(self, stride):
+        """上采样——插值
+        :param stride:
+        """
         super(Upsample_interpolate, self).__init__()
         self.stride = stride
 
@@ -99,20 +125,6 @@ class Reorg(nn.Module):
         return x
 
 
-class GlobalAvgPool2d(nn.Module):
-    def __init__(self):
-        super(GlobalAvgPool2d, self).__init__()
-
-    def forward(self, x):
-        N = x.data.size(0)
-        C = x.data.size(1)
-        H = x.data.size(2)
-        W = x.data.size(3)
-        x = F.avg_pool2d(x, (H, W))
-        x = x.view(N, C)
-        return x
-
-
 # for route and shortcut
 class EmptyModule(nn.Module):
     def __init__(self):
@@ -125,18 +137,22 @@ class EmptyModule(nn.Module):
 # support route shortcut and reorg
 class Darknet(nn.Module):
     def __init__(self, cfgfile, inference=False):
+        """通过cfgfile构建网络结构
+        :param cfgfile: yolov4.cfg
+        :param inference: 训练 or 推理
+        """
         super(Darknet, self).__init__()
-        self.inference = inference
+        self.inference = inference          # train or inference
         self.training = not self.inference
 
-        self.blocks = parse_cfg(cfgfile)
-        self.width = int(self.blocks[0]['width'])
+        self.blocks = parse_cfg(cfgfile)    # yolov4.cfg配置文件 ---->> list（dict）格式
+        self.width = int(self.blocks[0]['width'])   # 网络的width 和 height
         self.height = int(self.blocks[0]['height'])
 
-        self.models = self.create_network(self.blocks)  # merge conv, bn,leaky
+        self.models = self.create_network(self.blocks)  # merge conv, bn,leaky， 通过blocks创建models
         self.loss = self.models[len(self.models) - 1]
 
-        if self.blocks[(len(self.blocks) - 1)]['type'] == 'region':
+        if self.blocks[(len(self.blocks) - 1)]['type'] == 'region':  # 最后一层为region格式
             self.anchors = self.loss.anchors
             self.num_anchors = self.loss.num_anchors
             self.anchor_step = self.loss.anchor_step
@@ -148,22 +164,20 @@ class Darknet(nn.Module):
     def forward(self, x):
         ind = -2
         self.loss = None
-        outputs = dict()
-        out_boxes = []
+        outputs = dict()    # 存放模型每一层的输出
+        out_boxes = []      # 三个yolo层的输出
         for block in self.blocks:
             ind = ind + 1
-            # if ind > 0:
-            #    return x
 
-            if block['type'] == 'net':
-                continue
-            elif block['type'] in ['convolutional', 'maxpool', 'reorg', 'upsample', 'avgpool', 'softmax', 'connected']:
+            if block['type'] == 'net':  # type为net在blocks中为下标为0。
+                continue    # ind = 0 此时，然后再循环blocks
+            elif block['type'] in ['convolutional', 'maxpool', 'region', 'upsample', 'avgpool', 'softmax', 'connected']:
                 x = self.models[ind](x)
                 outputs[ind] = x
-            elif block['type'] == 'route':
+            elif block['type'] == 'route':  # route连接操作
                 layers = block['layers'].split(',')
                 layers = [int(i) if int(i) > 0 else int(i) + ind for i in layers]
-                if len(layers) == 1:
+                if len(layers) == 1:    # 一通道情况
                     if 'groups' not in block.keys() or int(block['groups']) == 1:
                         x = outputs[layers[0]]
                         outputs[ind] = x
@@ -173,12 +187,12 @@ class Darknet(nn.Module):
                         _, b, _, _ = outputs[layers[0]].shape
                         x = outputs[layers[0]][:, b // groups * group_id:b // groups * (group_id + 1)]
                         outputs[ind] = x
-                elif len(layers) == 2:
+                elif len(layers) == 2:  # 两通道
                     x1 = outputs[layers[0]]
                     x2 = outputs[layers[1]]
                     x = torch.cat((x1, x2), 1)
                     outputs[ind] = x
-                elif len(layers) == 4:
+                elif len(layers) == 4:  # 四通道
                     x1 = outputs[layers[0]]
                     x2 = outputs[layers[1]]
                     x3 = outputs[layers[2]]
@@ -187,8 +201,7 @@ class Darknet(nn.Module):
                     outputs[ind] = x
                 else:
                     print("rounte number > 2 ,is {}".format(len(layers)))
-
-            elif block['type'] == 'shortcut':
+            elif block['type'] == 'shortcut':   # shortcut，res结构
                 from_layer = int(block['from'])
                 activation = block['activation']
                 from_layer = from_layer if from_layer > 0 else from_layer + ind
@@ -208,11 +221,6 @@ class Darknet(nn.Module):
                     self.loss = self.models[ind](x)
                 outputs[ind] = None
             elif block['type'] == 'yolo':
-                # if self.training:
-                #     pass
-                # else:
-                #     boxes = self.models[ind](x)
-                #     out_boxes.append(boxes)
                 boxes = self.models[ind](x)
                 out_boxes.append(boxes)
             elif block['type'] == 'cost':
@@ -220,27 +228,34 @@ class Darknet(nn.Module):
             else:
                 print('unknown type %s' % (block['type']))
 
-        if self.training:
+        if self.training:   # train
             return out_boxes
-        else:
+        else:               # inference
             return get_region_boxes(out_boxes)
 
     def print_network(self):
+        """通过blocks打印网络
+        :return:
+        """
         print_cfg(self.blocks)
 
     def create_network(self, blocks):
+        """根据 blocks 创建网络models
+        :param blocks: blocks模块配置
+        :return: nn.ModuleList()
+        """
         models = nn.ModuleList()
 
-        prev_filters = 3
-        out_filters = []
-        prev_stride = 1
-        out_strides = []
-        conv_id = 0
+        prev_filters = 3    # 前一层 channels个数
+        out_filters = []    # 所有层（无输入层）的通道数
+        prev_stride = 1     # 前一层 stride 大小，相对于原始图像大小
+        out_strides = []    # 所有层（无输入层）的stride大小，相对于原始图像大小
+        conv_id = 0         # 每一层ID
         for block in blocks:
-            if block['type'] == 'net':
+            if block['type'] == 'net':  # 网络配置
                 prev_filters = int(block['channels'])
                 continue
-            elif block['type'] == 'convolutional':
+            elif block['type'] == 'convolutional':  # 卷积
                 conv_id = conv_id + 1
                 batch_normalize = int(block['batch_normalize'])
                 filters = int(block['filters'])
@@ -254,7 +269,6 @@ class Darknet(nn.Module):
                     model.add_module('conv{0}'.format(conv_id),
                                      nn.Conv2d(prev_filters, filters, kernel_size, stride, pad, bias=False))
                     model.add_module('bn{0}'.format(conv_id), nn.BatchNorm2d(filters))
-                    # model.add_module('bn{0}'.format(conv_id), BN2d(filters))
                 else:
                     model.add_module('conv{0}'.format(conv_id),
                                      nn.Conv2d(prev_filters, filters, kernel_size, stride, pad))
@@ -265,17 +279,17 @@ class Darknet(nn.Module):
                 elif activation == 'mish':
                     model.add_module('mish{0}'.format(conv_id), Mish())
                 else:
-                    print("convalution havn't activate {}".format(activation))
+                    print("Your activation is {}, but YOLO Layer ID {} convalution havn't activate {}".format(activation, conv_id, activation))
 
                 prev_filters = filters
                 out_filters.append(prev_filters)
                 prev_stride = stride * prev_stride
                 out_strides.append(prev_stride)
                 models.append(model)
-            elif block['type'] == 'maxpool':
+            elif block['type'] == 'maxpool':    # maxpool
                 pool_size = int(block['size'])
                 stride = int(block['stride'])
-                if stride == 1 and pool_size % 2:
+                if stride == 1 and pool_size % 2:   # stride为1，3，5，...
                     # You can use Maxpooldark instead, here is convenient to convert onnx.
                     # Example: [maxpool] size=3 stride=1
                     model = nn.MaxPool2d(kernel_size=pool_size, stride=stride, padding=pool_size // 2)
@@ -321,25 +335,24 @@ class Darknet(nn.Module):
                 prev_stride = prev_stride // stride
                 out_strides.append(prev_stride)
 
-                models.append(Upsample_expand(stride))
-                # models.append(Upsample_interpolate(stride))
-
+                models.append(Upsample_expand(stride))  # 上采样 方式1
+                # models.append(Upsample_interpolate(stride))   # 上采样 方式2
             elif block['type'] == 'route':
-                layers = block['layers'].split(',')
+                layers = block['layers'].split(',')  # -1， -7
                 ind = len(models)
-                layers = [int(i) if int(i) > 0 else int(i) + ind for i in layers]
-                if len(layers) == 1:
+                layers = [int(i) if int(i) > 0 else int(i) + ind for i in layers]   # 通过layers定位到整个网络的下标
+                if len(layers) == 1:    # 一条路径
                     if 'groups' not in block.keys() or int(block['groups']) == 1:
                         prev_filters = out_filters[layers[0]]
                         prev_stride = out_strides[layers[0]]
                     else:
                         prev_filters = out_filters[layers[0]] // int(block['groups'])
                         prev_stride = out_strides[layers[0]] // int(block['groups'])
-                elif len(layers) == 2:
+                elif len(layers) == 2:  # 两条路径
                     assert (layers[0] == ind - 1 or layers[1] == ind - 1)
                     prev_filters = out_filters[layers[0]] + out_filters[layers[1]]
                     prev_stride = out_strides[layers[0]]
-                elif len(layers) == 4:
+                elif len(layers) == 4:  # 四条路径
                     assert (layers[0] == ind - 1)
                     prev_filters = out_filters[layers[0]] + out_filters[layers[1]] + out_filters[layers[2]] + \
                                    out_filters[layers[3]]
@@ -389,20 +402,17 @@ class Darknet(nn.Module):
                 models.append(loss)
             elif block['type'] == 'yolo':
                 yolo_layer = YoloLayer()
-                anchors = block['anchors'].split(',')
-                anchor_mask = block['mask'].split(',')
-                yolo_layer.anchor_mask = [int(i) for i in anchor_mask]
-                yolo_layer.anchors = [float(i) for i in anchors]
-                yolo_layer.num_classes = int(block['classes'])
-                self.num_classes = yolo_layer.num_classes
-                yolo_layer.num_anchors = int(block['num'])
-                yolo_layer.anchor_step = len(yolo_layer.anchors) // yolo_layer.num_anchors
-                yolo_layer.stride = prev_stride
-                yolo_layer.scale_x_y = float(block['scale_x_y'])
-                # yolo_layer.object_scale = float(block['object_scale'])
-                # yolo_layer.noobject_scale = float(block['noobject_scale'])
-                # yolo_layer.class_scale = float(block['class_scale'])
-                # yolo_layer.coord_scale = float(block['coord_scale'])
+                anchors = block['anchors'].split(',')                   # all anchors
+                anchor_mask = block['mask'].split(',')                  # anchor mask
+                yolo_layer.anchor_mask = [int(i) for i in anchor_mask]  # 当前yolo layer的 anchor mask eg.[0,1,2]
+                yolo_layer.anchors = [float(i) for i in anchors]        # 当前yolo layer的 anchors eg.[xx,xx,xx]
+                yolo_layer.num_classes = int(block['classes'])          # 当前yolo layer的 classes类别数 eg.80
+                self.num_classes = yolo_layer.num_classes               # DarkNet 类别数 eg.80
+                yolo_layer.num_anchors = int(block['num'])              # 当前yolo layer的 所有的anchors数量 eg.9
+                yolo_layer.anchor_step = len(yolo_layer.anchors) // yolo_layer.num_anchors  # 索引 anchor的步长 eg.18/9=2
+                yolo_layer.stride = prev_stride                         # 此yolo layer特征图相对于原图的步长
+                yolo_layer.scale_x_y = float(block['scale_x_y'])        # xy比例
+
                 out_filters.append(prev_filters)
                 out_strides.append(prev_stride)
                 models.append(yolo_layer)
@@ -463,52 +473,52 @@ class Darknet(nn.Module):
             else:
                 print('unknown type %s' % (block['type']))
 
-    # def save_weights(self, outfile, cutoff=0):
-    #     if cutoff <= 0:
-    #         cutoff = len(self.blocks) - 1
-    #
-    #     fp = open(outfile, 'wb')
-    #     self.header[3] = self.seen
-    #     header = self.header
-    #     header.numpy().tofile(fp)
-    #
-    #     ind = -1
-    #     for blockId in range(1, cutoff + 1):
-    #         ind = ind + 1
-    #         block = self.blocks[blockId]
-    #         if block['type'] == 'convolutional':
-    #             model = self.models[ind]
-    #             batch_normalize = int(block['batch_normalize'])
-    #             if batch_normalize:
-    #                 save_conv_bn(fp, model[0], model[1])
-    #             else:
-    #                 save_conv(fp, model[0])
-    #         elif block['type'] == 'connected':
-    #             model = self.models[ind]
-    #             if block['activation'] != 'linear':
-    #                 save_fc(fc, model)
-    #             else:
-    #                 save_fc(fc, model[0])
-    #         elif block['type'] == 'maxpool':
-    #             pass
-    #         elif block['type'] == 'reorg':
-    #             pass
-    #         elif block['type'] == 'upsample':
-    #             pass
-    #         elif block['type'] == 'route':
-    #             pass
-    #         elif block['type'] == 'shortcut':
-    #             pass
-    #         elif block['type'] == 'region':
-    #             pass
-    #         elif block['type'] == 'yolo':
-    #             pass
-    #         elif block['type'] == 'avgpool':
-    #             pass
-    #         elif block['type'] == 'softmax':
-    #             pass
-    #         elif block['type'] == 'cost':
-    #             pass
-    #         else:
-    #             print('unknown type %s' % (block['type']))
-    #     fp.close()
+    def save_weights(self, outfile, cutoff=0):
+        if cutoff <= 0:
+            cutoff = len(self.blocks) - 1
+
+        fp = open(outfile, 'wb')
+        self.header[3] = self.seen
+        header = self.header
+        header.numpy().tofile(fp)
+
+        ind = -1
+        for blockId in range(1, cutoff + 1):
+            ind = ind + 1
+            block = self.blocks[blockId]
+            if block['type'] == 'convolutional':
+                model = self.models[ind]
+                batch_normalize = int(block['batch_normalize'])
+                if batch_normalize:
+                    save_conv_bn(fp, model[0], model[1])
+                else:
+                    save_conv(fp, model[0])
+            elif block['type'] == 'connected':
+                model = self.models[ind]
+                if block['activation'] != 'linear':
+                    save_fc(fc, model)
+                else:
+                    save_fc(fc, model[0])
+            elif block['type'] == 'maxpool':
+                pass
+            elif block['type'] == 'reorg':
+                pass
+            elif block['type'] == 'upsample':
+                pass
+            elif block['type'] == 'route':
+                pass
+            elif block['type'] == 'shortcut':
+                pass
+            elif block['type'] == 'region':
+                pass
+            elif block['type'] == 'yolo':
+                pass
+            elif block['type'] == 'avgpool':
+                pass
+            elif block['type'] == 'softmax':
+                pass
+            elif block['type'] == 'cost':
+                pass
+            else:
+                print('unknown type %s' % (block['type']))
+        fp.close()

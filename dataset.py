@@ -4,10 +4,10 @@
 @Author        : Tianxiaomo，modify by felixfu
 @File          : dataset.py
 @Noice         :
-@Modificattion :
-    @Author    :
-    @Time      :
-    @Detail    :
+@Modificattion : 注释
+    @Author    : FelixFu
+    @Time      : 2020/10/20
+    @Detail    : 添加注释
 
 """
 
@@ -34,6 +34,7 @@ def rand_uniform_strong(min_value, max_value):
         max_value = swap
     return random.random() * (max_value - min_value) + min_value
 
+
 def rand_scale(s):
     """
     随机在 (1, s)和 1/（1，s）中选择个数
@@ -44,6 +45,7 @@ def rand_scale(s):
     if random.randint(0, 1) % 2:
         return scale
     return 1. / scale
+
 
 def rand_precalc_random(min, max, random_part):
     """
@@ -58,6 +60,7 @@ def rand_precalc_random(min, max, random_part):
         min = max
         max = swap
     return (random_part * (max - min)) + min
+
 
 def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w, net_h):
     """
@@ -124,6 +127,7 @@ def fill_truth_detection(bboxes, num_boxes, classes, flip, dx, dy, sx, sy, net_w
 
     return bboxes, min_w_h
 
+
 def rect_intersection(a, b):
     """
     功能：矩形框a和b的 交集框的下标
@@ -137,6 +141,7 @@ def rect_intersection(a, b):
     maxx = min(a[2], b[2])
     maxy = min(a[3], b[3])
     return [minx, miny, maxx, maxy]
+
 
 def image_data_augmentation(mat, w, h, pleft, ptop, swidth, sheight, flip, dhue, dsat, dexp, gaussian_noise, blur,
                             truth):
@@ -242,6 +247,17 @@ def image_data_augmentation(mat, w, h, pleft, ptop, swidth, sheight, flip, dhue,
 
 
 def filter_truth(bboxes, dx, dy, sx, sy, xd, yd):
+    """
+    功能：未注释
+    :param bboxes:
+    :param dx:
+    :param dy:
+    :param sx:
+    :param sy:
+    :param xd:
+    :param yd:
+    :return:
+    """
     bboxes[:, 0] -= dx
     bboxes[:, 2] -= dx
     bboxes[:, 1] -= dy
@@ -269,10 +285,11 @@ def filter_truth(bboxes, dx, dy, sx, sy, xd, yd):
 
     return bboxes
 
+
 def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
                        left_shift, right_shift, top_shift, bot_shift):
     """
-
+    功能：未注释
     :param out_img:
     :param img:
     :param bboxes:
@@ -306,6 +323,7 @@ def blend_truth_mosaic(out_img, img, bboxes, w, h, cut_x, cut_y, i_mixup,
         out_img[cut_y:, cut_x:] = img[cut_y - bot_shift:h - bot_shift, cut_x - right_shift:w - right_shift]
 
     return out_img, bboxes
+
 
 def draw_box(img, bboxes):
     """
@@ -529,16 +547,18 @@ def get_image_id(filename:str) -> int:
     For creating one's own `get_image_id` function, one can refer to
     https://github.com/google/automl/blob/master/efficientdet/dataset/create_pascal_tfrecord.py#L86
     or refer to the following code (where the filenames are like 'level1_123.jpg')
-    >>> lv, no = os.path.splitext(os.path.basename(filename))[0].split("_")
-    >>> lv = lv.replace("level", "")
-    >>> no = f"{int(no):04d}"
-    >>> return int(lv+no)
+    # >>> lv, no = os.path.splitext(os.path.basename(filename))[0].split("_")
+    # >>> lv = lv.replace("level", "")
+    # >>> no = f"{int(no):04d}"
+    # >>> return int(lv+no)
     """
-    raise NotImplementedError("Create your own 'get_image_id' function")
-    lv, no = os.path.splitext(os.path.basename(filename))[0].split("_")
-    lv = lv.replace("level", "")
-    no = f"{int(no):04d}"
-    return int(lv+no)
+    no = os.path.splitext(os.path.basename(filename))[0]
+    return int(no)
+    # raise NotImplementedError("Create your own 'get_image_id' function")
+    # lv, no = os.path.splitext(os.path.basename(filename))[0].split("_")
+    # lv = lv.replace("level", "")
+    # no = f"{int(no):04d}"
+    # return int(lv+no)
 
 
 if __name__ == "__main__":

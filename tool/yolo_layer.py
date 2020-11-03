@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from tool.torch_utils import *
 
+
 def yolo_forward(output, conf_thresh, num_classes, anchors, num_anchors, scale_x_y, only_objectness=1,
                               validation=False):
     # Output would be invalid if it does not satisfy this assert
@@ -145,8 +146,8 @@ def yolo_forward(output, conf_thresh, num_classes, anchors, num_anchors, scale_x
     return  boxes, confs
 
 
-def yolo_forward_dynamic(output, conf_thresh, num_classes, anchors, num_anchors, scale_x_y, only_objectness=1,
-                              validation=False):
+def yolo_forward_dynamic(output, conf_thresh, num_classes, anchors, num_anchors, scale_x_y,
+                         only_objectness=1, validation=False):
     # Output would be invalid if it does not satisfy this assert
     # assert (output.size(1) == (5 + num_classes) * num_anchors)
 
@@ -287,36 +288,38 @@ def yolo_forward_dynamic(output, conf_thresh, num_classes, anchors, num_anchors,
 
     return  boxes, confs
 
+
 class YoloLayer(nn.Module):
-    ''' Yolo layer
+    """Yolo layer
     model_out: while inference,is post-processing inside or outside the model
         true:outside
-    '''
+    """
     def __init__(self, anchor_mask=[], num_classes=0, anchors=[], num_anchors=1, stride=32, model_out=False):
         super(YoloLayer, self).__init__()
-        self.anchor_mask = anchor_mask
-        self.num_classes = num_classes
-        self.anchors = anchors
-        self.num_anchors = num_anchors
-        self.anchor_step = len(anchors) // num_anchors
-        self.coord_scale = 1
-        self.noobject_scale = 1
-        self.object_scale = 5
-        self.class_scale = 1
-        self.thresh = 0.6
-        self.stride = stride
-        self.seen = 0
-        self.scale_x_y = 1
+        self.anchor_mask = anchor_mask  # anchor mask eg.[0,1,2]
+        self.num_classes = num_classes  # number of classes eg.80
+        self.anchors = anchors          # all anchor eg.[xx,xx,...]
+        self.num_anchors = num_anchors  # all anchors的数量 eg.9
+        self.anchor_step = len(anchors) // num_anchors  # 索引anchors步长 eg.2
+        self.coord_scale = 1            # 协调比例
+        self.noobject_scale = 1         # 无object比例
+        self.object_scale = 5           # 有object比例
+        self.class_scale = 1            # 类别比例
+        self.thresh = 0.6               # ？
+        self.stride = stride            # 此yolo layer特征图相对于原图的步长
+        self.seen = 0                   # ？
+        self.scale_x_y = 1              # ？
 
         self.model_out = model_out
 
     def forward(self, output, target=None):
-        if self.training:
+        if self.training:   # train
             return output
         masked_anchors = []
         for m in self.anchor_mask:
             masked_anchors += self.anchors[m * self.anchor_step:(m + 1) * self.anchor_step]
         masked_anchors = [anchor / self.stride for anchor in masked_anchors]
 
-        return yolo_forward_dynamic(output, self.thresh, self.num_classes, masked_anchors, len(self.anchor_mask),scale_x_y=self.scale_x_y)
+        return yolo_forward_dynamic(output, self.thresh, self.num_classes, masked_anchors, len(self.anchor_mask),
+                                    scale_x_y=self.scale_x_y)
 
